@@ -1,0 +1,5 @@
+{
+    "python.analysis.extraPaths": [
+        "./immo_eliza_scraping_env/src"
+    ]
+}
