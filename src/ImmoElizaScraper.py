@@ -4,7 +4,6 @@ from PropertyParser import PropertyParser
 import pandas as pd
 import os
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 class ImmoElizaScraper:
     def __init__(self):
