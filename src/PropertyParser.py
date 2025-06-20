@@ -9,8 +9,8 @@ class PropertyParser:
                          "Villa", "Manoir", "Pavillon", "Autres biens"}
 
         basic_info = {
-            "url": None, "price": None, "rooms": None, "area": None, "locality": None,
-            "property_type": None, "sub_property_type": None
+            "url": None, "price": None, "rooms": None, "area": None, 
+            "postal_code": None, "locality": None,"property_type": None, "sub_property_type": None
         }
 
         title_tag = li.find("a", class_="card__title-link")
@@ -44,8 +44,14 @@ class PropertyParser:
 
             locality_info = info_block.find("p", class_="card__information card--results__information--locality")
             if locality_info:
-                basic_info["locality"] = locality_info.get_text(strip=True)
-
+                locality_text = locality_info.get_text(strip=True)
+                match = re.match(r"(\d{4,5})\s+(.*)", locality_text)
+                if match:
+                    basic_info["postal_code"] = match.group(1)
+                    basic_info["locality"] = match.group(2).capitalize()
+                else:
+                    basic_info["postal_code"] = None
+                    basic_info["locality"] = locality_text.capitalize()
         return basic_info
 
     def get_general_infos(self, section: BeautifulSoup) -> dict:
@@ -117,13 +123,16 @@ class PropertyParser:
 
     def extract_detailed_property_info(self, page, url: str) -> dict:
         page.goto(url)
-        page.wait_for_timeout(1000)
+        page.wait_for_timeout(2000)
         html = page.content()
         soup = BeautifulSoup(html, "html.parser")
-        print(soup.prettify())
-        container = soup.find("div", class_="container container--body")
-        if not container:
-            raise ValueError("Section 'container--body' not found in HTML")
+        try:
+            container = soup.find("div", class_="container container--body")
+        except Exception as e:
+            print("=" * 40)
+            print("Section 'container--body' not found in HTML")
+            print(f"Error : {e}")
+            print("=" * 40)
 
         sections = container.find_all('div', class_="text-block")
 

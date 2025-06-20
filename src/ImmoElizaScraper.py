@@ -14,10 +14,13 @@ class ImmoElizaScraper:
     def __str__(self) -> str:
         return "ImmoElizaScraper"
 
-    def save_to_csv(self, data: list[dict], filename: str = "immoweb_data.csv"):
+    def save_to_csv(self, data: list[dict], filename1: str = "immoweb_data.csv"):
         df = pd.DataFrame(data)
-        file_exists = os.path.exists(filename)
-        df.to_csv(filename, mode="a", index=False, header=not file_exists, na_rep="None")
+        file_exists1 = os.path.exists(filename1)
+        df.to_csv(filename1, mode="a", index=False, header=not file_exists1, na_rep="")
+        #file_exists2 = os.path.exists(filename2)
+        #df.to_csv(filename2, mode="a", index=False, header=not file_exists2, na_rep="None")
+
 
     def collect_basic_infos(self, page, nb_page: int) -> list[dict]:
         all_basic_info = []
@@ -26,40 +29,31 @@ class ImmoElizaScraper:
         soup = BeautifulSoup(html, "html.parser")
         search_results = soup.find("div", id="searchResults").find("ul", id="main-content").find("div").find_all('li')
         properties = [result for result in search_results if result.find("a", class_="card__title-link")]
-        for prop in properties[:3]:  # limite à 3 par page pour test
+        for prop in tqdm(properties):
             basic_info = self.parser.extract_card_basic_info(prop)
             all_basic_info.append(basic_info)
         return all_basic_info
 
 
-    def enrich_property(self, info: dict) -> dict:
+
+    def enrich_property(self, info: dict, page) -> dict:
         try:
-            with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True)
-                page = browser.new_page()
-                detailed = self.parser.extract_detailed_property_info(page, info["url"])
-                browser.close()
-                return info | detailed
+            detailed = self.parser.extract_detailed_property_info(page, info["url"])
+            return info | detailed
         except Exception as e:
             print(f"Error processing {info['url']}: {e}")
-            return info  # Retourne au moins les infos de base
+            return info
 
-    def load_data(self, nb_pages: int = 2):
+    def load_data(self, nb_pages: int = 15):
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=False)
             page = browser.new_page()
-
-            for nb_page in tqdm(range(1, nb_pages + 1), desc="Scraping pages"):
+            for nb_page in tqdm(range(10, nb_pages + 1)):
                 basic_infos = self.collect_basic_infos(page, nb_page)
-
-                with ThreadPoolExecutor(max_workers=5) as executor:
-                    futures = [executor.submit(self.enrich_property, info) for info in basic_infos]
-
-                    for future in as_completed(futures):
-                        enriched = future.result()
-                        self.save_to_csv([enriched])  # ✅ Écriture après chaque annonce enrichie
-
+                for info in basic_infos:
+                    detail_page = browser.new_page()
+                    enriched = self.enrich_property(info, detail_page)
+                    detail_page.close()
+                    self.save_to_csv([enriched])
+            page.close()
             browser.close()
-
-
-        
